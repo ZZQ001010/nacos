@@ -20,14 +20,15 @@ import com.alibaba.nacos.naming.pojo.Record;
 
 /**
  * Data listener public interface.
+ * 数据监听公共接口
  *
  * @author nacos
  */
 public interface RecordListener<T extends Record> {
-    
+   
     /**
      * Determine if the listener was registered with this key.
-     *
+     * 判断当前key 是否已经绑定了监听器
      * @param key candidate key
      * @return true if the listener was registered with this key
      */
@@ -35,6 +36,7 @@ public interface RecordListener<T extends Record> {
     
     /**
      * Determine if the listener is to be removed by matching the 'key'.
+     * 通过key 来解除监听器
      *
      * @param key key to match
      * @return true if match success
@@ -43,6 +45,7 @@ public interface RecordListener<T extends Record> {
     
     /**
      * Action to do if data of target key has changed.
+     * 当key 对应的data 发生变化时，会调用此方法
      *
      * @param key   target key
      * @param value data of the key
@@ -52,6 +55,7 @@ public interface RecordListener<T extends Record> {
     
     /**
      * Action to do if data of target key has been removed.
+     *当key 对应的data 被删除时，会调用此方法
      *
      * @param key target key
      * @throws Exception exception

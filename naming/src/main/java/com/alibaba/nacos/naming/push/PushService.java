@@ -122,9 +122,11 @@ public class PushService implements ApplicationContextAware, ApplicationListener
         String serviceName = service.getName();
         String namespaceId = service.getNamespaceId();
         
+        // 开始一个udpSender任务
         Future future = GlobalExecutor.scheduleUdpSender(() -> {
             try {
                 Loggers.PUSH.info(serviceName + " is changed, add it to push queue.");
+                // 从client 列表中取出对应客户端的一些信息
                 ConcurrentMap<String, PushClient> clients = clientMap
                         .get(UtilsAndCommons.assembleFullServiceName(namespaceId, serviceName));
                 if (MapUtils.isEmpty(clients)) {
@@ -133,9 +135,12 @@ public class PushService implements ApplicationContextAware, ApplicationListener
                 
                 Map<String, Object> cache = new HashMap<>(16);
                 long lastRefTime = System.nanoTime();
+                // 遍历出所有的pushClient
                 for (PushClient client : clients.values()) {
+                    // 计算下本次距上次推送的时间，判断是否是僵尸实例
                     if (client.zombie()) {
                         Loggers.PUSH.debug("client is zombie: " + client.toString());
+                        // 移除
                         clients.remove(client.toString());
                         Loggers.PUSH.debug("client is zombie: " + client.toString());
                         continue;
@@ -143,22 +148,30 @@ public class PushService implements ApplicationContextAware, ApplicationListener
                     
                     Receiver.AckEntry ackEntry;
                     Loggers.PUSH.debug("push serviceName: {} to client: {}", serviceName, client.toString());
+                    // 封装key
                     String key = getPushCacheKey(serviceName, client.getIp(), client.getAgent());
                     byte[] compressData = null;
                     Map<String, Object> data = null;
+                    // 20 秒内已经发送过的，直接从缓存中拿
                     if (switchDomain.getDefaultPushCacheMillis() >= 20000 && cache.containsKey(key)) {
+                        // 拿到元组（元组第一个位置上是压缩的数据，第二个位置上时没有压缩的数据）
                         org.javatuples.Pair pair = (org.javatuples.Pair) cache.get(key);
+                        // 压缩元组上第一个value
                         compressData = (byte[]) (pair.getValue0());
+                        
                         data = (Map<String, Object>) pair.getValue1();
                         
                         Loggers.PUSH.debug("[PUSH-CACHE] cache hit: {}:{}", serviceName, client.getAddrStr());
                     }
                     
                     if (compressData != null) {
+                        // 对压缩数据做处理
                         ackEntry = prepareAckEntry(client, compressData, data, lastRefTime);
                     } else {
+                        // 对没有压缩的数据做处理，如果有必要做一次压缩，因为udp的协议包的大小限制
                         ackEntry = prepareAckEntry(client, prepareHostsData(client), lastRefTime);
                         if (ackEntry != null) {
+                            // 放入缓存
                             cache.put(key, new org.javatuples.Pair<>(ackEntry.origin.getData(), ackEntry.data));
                         }
                     }
@@ -166,18 +179,21 @@ public class PushService implements ApplicationContextAware, ApplicationListener
                     Loggers.PUSH.info("serviceName: {} changed, schedule push for: {}, agent: {}, key: {}",
                             client.getServiceName(), client.getAddrStr(), client.getAgent(),
                             (ackEntry == null ? null : ackEntry.key));
-                    
+                    // 发送到微服务
                     udpPush(ackEntry);
                 }
             } catch (Exception e) {
                 Loggers.PUSH.error("[NACOS-PUSH] failed to push serviceName: {} to client, error: {}", serviceName, e);
                 
             } finally {
+                // 清除上次推送的结果
                 futureMap.remove(UtilsAndCommons.assembleFullServiceName(namespaceId, serviceName));
             }
             
+            // 延迟1s
         }, 1000, TimeUnit.MILLISECONDS);
         
+        // 本地结果缓存起来
         futureMap.put(UtilsAndCommons.assembleFullServiceName(namespaceId, serviceName), future);
         
     }

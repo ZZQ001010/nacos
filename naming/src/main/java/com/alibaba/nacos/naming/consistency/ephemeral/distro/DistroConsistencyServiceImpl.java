@@ -122,7 +122,7 @@ public class DistroConsistencyServiceImpl implements EphemeralConsistencyService
     
     /**
      * Put a new record.
-     *
+     * 新增一个任务到队列中
      * @param key   key of record
      * @param value record
      */
@@ -354,6 +354,9 @@ public class DistroConsistencyServiceImpl implements EphemeralConsistencyService
         return distroProtocol.isInitialized() || !globalConfig.isDataWarmup();
     }
     
+    /**
+     *     任务
+     */
     public class Notifier implements Runnable {
         
         private ConcurrentHashMap<String, String> services = new ConcurrentHashMap<>(10 * 1024);

@@ -133,14 +133,15 @@ public class InstanceController {
     @PostMapping
     @Secured(parser = NamingResourceParser.class, action = ActionTypes.WRITE)
     public String register(HttpServletRequest request) throws Exception {
-        
+        // 从请求表单中获取 namespaceId, ServiceName
         final String namespaceId = WebUtils
                 .optional(request, CommonParams.NAMESPACE_ID, Constants.DEFAULT_NAMESPACE_ID);
         final String serviceName = WebUtils.required(request, CommonParams.SERVICE_NAME);
+        // 将serviceName 拼接上group ===> groupId@@ServiceName,并校验serviceName 长度
         NamingUtils.checkServiceNameFormat(serviceName);
-        
+        // 请求转换为instance
         final Instance instance = parseInstance(request);
-        
+        // 注册
         serviceManager.registerInstance(namespaceId, serviceName, instance);
         return "ok";
     }

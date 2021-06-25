@@ -46,22 +46,37 @@ public class NotifyCenter {
     
     private static final Logger LOGGER = LoggerFactory.getLogger(NotifyCenter.class);
     
+    /**
+    *
+    */
     public static int ringBufferSize = 16384;
     
+    /**
+     *
+     */
     public static int shareBufferSize = 1024;
     
     private static final AtomicBoolean CLOSED = new AtomicBoolean(false);
     
     private static BiFunction<Class<? extends Event>, Integer, EventPublisher> publisherFactory = null;
     
+    /**
+     * 静态代码块创建单例
+     */
     private static final NotifyCenter INSTANCE = new NotifyCenter();
     
+    /**
+     *  可以看出sharePublisher 是一个单例的
+     *  其他的publisher 是针对于某个事件的
+     *
+     *   共享的publisher
+     */
     private DefaultSharePublisher sharePublisher;
     
     private static Class<? extends EventPublisher> clazz = null;
     
     /**
-     * Publisher management container.
+     * 发布者存放容器
      */
     private final Map<String, EventPublisher> publisherMap = new ConcurrentHashMap<String, EventPublisher>(16);
     
@@ -69,12 +84,14 @@ public class NotifyCenter {
         // Internal ArrayBlockingQueue buffer size. For applications with high write throughput,
         // this value needs to be increased appropriately. default value is 16384
         String ringBufferSizeProperty = "nacos.core.notify.ring-buffer-size";
+        // 从系统变量中拿
         ringBufferSize = Integer.getInteger(ringBufferSizeProperty, 16384);
         
         // The size of the public publisher's message staging queue buffer
         String shareBufferSizeProperty = "nacos.core.notify.share-buffer-size";
         shareBufferSize = Integer.getInteger(shareBufferSizeProperty, 1024);
         
+        // 拿到所有的EventPublisher,这里用到java的SPI机制，自己可以在这里拓展
         final ServiceLoader<EventPublisher> loader = ServiceLoader.load(EventPublisher.class);
         Iterator<EventPublisher> iterator = loader.iterator();
         
@@ -84,6 +101,8 @@ public class NotifyCenter {
             clazz = DefaultPublisher.class;
         }
         
+        // 创建publisherFactory,创建工厂并不是创建 publisher
+        // 这里是一个懒加载动作，使用的时候才会创建publisher
         publisherFactory = new BiFunction<Class<? extends Event>, Integer, EventPublisher>() {
             
             @Override
@@ -100,7 +119,7 @@ public class NotifyCenter {
         };
         
         try {
-            
+            // 创建sharePublisher
             // Create and init DefaultSharePublisher instance.
             INSTANCE.sharePublisher = new DefaultSharePublisher();
             INSTANCE.sharePublisher.init(SlowEvent.class, shareBufferSize);
@@ -109,6 +128,7 @@ public class NotifyCenter {
             LOGGER.error("Service class newInstance has error : {}", ex);
         }
         
+        // 注册一个Hook shutdown 消息中心
         ThreadUtils.addShutdownHook(new Runnable() {
             @Override
             public void run() {
@@ -124,6 +144,7 @@ public class NotifyCenter {
     
     @JustForTest
     public static EventPublisher getPublisher(Class<? extends Event> topic) {
+        // 根据事件类型来返回对应的Publisher
         if (ClassUtils.isAssignableFrom(SlowEvent.class, topic)) {
             return INSTANCE.sharePublisher;
         }
@@ -168,6 +189,7 @@ public class NotifyCenter {
      *
      * @param consumer subscriber
      * @param <T>      event type
+     *           注册订阅者
      */
     public static <T> void registerSubscriber(final Subscriber consumer) {
         // If you want to listen to multiple events, you do it separately,
@@ -196,6 +218,8 @@ public class NotifyCenter {
     
     /**
      * Add a subscriber to publisher.
+     *
+     *  看下publisher 是否被创建，没有被创建创建，并且将Subscriber 放入publisher
      *
      * @param consumer      subscriber instance.
      * @param subscribeType subscribeType.
@@ -276,6 +300,7 @@ public class NotifyCenter {
     /**
      * Request publisher publish event Publishers load lazily, calling publisher.
      *
+     * 根据时间类型找到对应的publisher 发布事件
      * @param eventType class Instances type of the event type.
      * @param event     event instance.
      */

@@ -27,7 +27,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class AuthConfig {
-    
+
     @Bean
     public FilterRegistrationBean authFilterRegistration() {
         FilterRegistrationBean<AuthFilter> registration = new FilterRegistrationBean<>();
@@ -35,10 +35,10 @@ public class AuthConfig {
         registration.addUrlPatterns("/*");
         registration.setName("authFilter");
         registration.setOrder(6);
-        
+
         return registration;
     }
-    
+
     @Bean
     public AuthFilter authFilter() {
         return new AuthFilter();

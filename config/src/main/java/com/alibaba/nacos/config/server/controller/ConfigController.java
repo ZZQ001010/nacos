@@ -199,9 +199,11 @@ public class ConfigController {
             @RequestParam(value = "tag", required = false) String tag)
             throws IOException, ServletException, NacosException {
         // check tenant
+        // 检查租户
         ParamUtils.checkTenant(tenant);
         tenant = NamespaceUtil.processNamespaceParameter(tenant);
         // check params
+        // 检查参数合法
         ParamUtils.checkParam(dataId, group, "datumId", "content");
         ParamUtils.checkParam(tag);
         

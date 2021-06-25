@@ -124,6 +124,7 @@ public class HostReactor implements Closeable {
     }
     
     public synchronized ScheduledFuture<?> addTask(UpdateTask task) {
+        // 延迟一秒执行任务
         return executor.schedule(task, DEFAULT_DELAY, TimeUnit.MILLISECONDS);
     }
     
@@ -168,6 +169,7 @@ public class HostReactor implements Closeable {
         }
         ServiceInfo oldService = serviceInfoMap.get(serviceKey);
         
+        // 新的验证失败，就用旧的
         if (pushEmptyProtection && !serviceInfo.validate()) {
             //empty or error push, just ignore
             return oldService;
@@ -227,18 +229,21 @@ public class HostReactor implements Closeable {
                 
             }
             
+            // 新增的实例
             if (newHosts.size() > 0) {
                 changed = true;
                 NAMING_LOGGER.info("new ips(" + newHosts.size() + ") service: " + serviceInfo.getKey() + " -> "
                         + JacksonUtils.toJson(newHosts));
             }
             
+            // 删除的实例
             if (remvHosts.size() > 0) {
                 changed = true;
                 NAMING_LOGGER.info("removed ips(" + remvHosts.size() + ") service: " + serviceInfo.getKey() + " -> "
                         + JacksonUtils.toJson(remvHosts));
             }
             
+            // 修改的实例
             if (modHosts.size() > 0) {
                 changed = true;
                 updateBeatInfo(modHosts);
@@ -249,8 +254,10 @@ public class HostReactor implements Closeable {
             serviceInfo.setJsonFromServer(json);
             
             if (newHosts.size() > 0 || remvHosts.size() > 0 || modHosts.size() > 0) {
+                // 发布事件
                 NotifyCenter.publishEvent(new InstancesChangeEvent(serviceInfo.getName(), serviceInfo.getGroupName(),
                         serviceInfo.getClusters(), serviceInfo.getHosts()));
+                // 写磁盘
                 DiskCache.write(serviceInfo, cacheDir);
             }
             
@@ -304,24 +311,29 @@ public class HostReactor implements Closeable {
     public ServiceInfo getServiceInfo(final String serviceName, final String clusters) {
         
         NAMING_LOGGER.debug("failover-mode: " + failoverReactor.isFailoverSwitch());
+        // 根据服务名，servicename 拼接唯一服务key
         String key = ServiceInfo.getKey(serviceName, clusters);
+        // 这个做容灾用的，把服务列表存在本地文件中
         if (failoverReactor.isFailoverSwitch()) {
             return failoverReactor.getService(key);
         }
         
+        // 根据key 从serviceInfoMap拿到serviceObj
         ServiceInfo serviceObj = getServiceInfo0(serviceName, clusters);
         
         if (null == serviceObj) {
+            // 没有创建
             serviceObj = new ServiceInfo(serviceName, clusters);
             
             serviceInfoMap.put(serviceObj.getKey(), serviceObj);
-            
+            // 这里的updatingMap --> ConcurrentHashMap,用来保障更新过程中不会被其他线程打扰
             updatingMap.put(serviceName, new Object());
+            // 更新instance 列表
             updateServiceNow(serviceName, clusters);
             updatingMap.remove(serviceName);
             
         } else if (updatingMap.containsKey(serviceName)) {
-            
+            // 正在更新，呢这个线程就要等待其他线程更新完
             if (UPDATE_HOLD_INTERVAL > 0) {
                 // hold a moment waiting for update finish
                 synchronized (serviceObj) {
@@ -364,6 +376,7 @@ public class HostReactor implements Closeable {
                 return;
             }
             
+            // 执行一次更新任务
             ScheduledFuture<?> future = addTask(new UpdateTask(serviceName, clusters));
             futureMap.put(ServiceInfo.getKey(serviceName, clusters), future);
         }
@@ -376,16 +389,19 @@ public class HostReactor implements Closeable {
      * @param clusters    clusters
      */
     public void updateService(String serviceName, String clusters) throws NacosException {
+        // 拿到老的ServiceInfo
         ServiceInfo oldService = getServiceInfo0(serviceName, clusters);
         try {
-            
+            // 查出service 下的所有的instance
             String result = serverProxy.queryList(serviceName, clusters, pushReceiver.getUdpPort(), false);
             
             if (StringUtils.isNotEmpty(result)) {
+                // 解析json
                 processServiceJson(result);
             }
         } finally {
             if (oldService != null) {
+                // 操作完成之后通知其他线程
                 synchronized (oldService) {
                     oldService.notifyAll();
                 }
@@ -487,6 +503,7 @@ public class HostReactor implements Closeable {
                 incFailCount();
                 NAMING_LOGGER.warn("[NA] failed to update serviceName: " + serviceName, e);
             } finally {
+                //下一次更新时间会根据之前失败的次数来调整，1-6个级别，也就是如果总是失败，updateTask执行的就越来越慢
                 executor.schedule(this, Math.min(delayTime << failCount, DEFAULT_DELAY * 60), TimeUnit.MILLISECONDS);
             }
         }

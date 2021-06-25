@@ -102,6 +102,7 @@ public class DefaultPublisher extends Thread implements EventPublisher {
             // To ensure that messages are not lost, enable EventHandler when
             // waiting for the first Subscriber to register
             for (; ; ) {
+                // 如果shutdown或有订阅者或waitTime<=0跳出循环
                 if (shutdown || hasSubscriber() || waitTimes <= 0) {
                     break;
                 }
@@ -110,11 +111,15 @@ public class DefaultPublisher extends Thread implements EventPublisher {
             }
             
             for (; ; ) {
+                // shutdown跳出循环
                 if (shutdown) {
                     break;
                 }
+                // 拿到一个事件
                 final Event event = queue.take();
+                // 通知订阅者处理事件
                 receiveEvent(event);
+                // 更新最后一个处理事件的序号
                 UPDATER.compareAndSet(this, lastEventSequence, Math.max(lastEventSequence, event.sequence()));
             }
         } catch (Throwable ex) {
@@ -173,8 +178,10 @@ public class DefaultPublisher extends Thread implements EventPublisher {
         final long currentEventSequence = event.sequence();
         
         // Notification single event listener
+        // 遍历订阅者列表
         for (Subscriber subscriber : subscribers) {
             // Whether to ignore expiration events
+            // 如果消息订阅者不忽略过期事件，并且 最后一个事件的序号 比 当前事件的的大（序号越大时间越靠后）
             if (subscriber.ignoreExpireEvent() && lastEventSequence > currentEventSequence) {
                 LOGGER.debug("[NotifyCenter] the {} is unacceptable to this subscriber, because had expire",
                         event.getClass());
@@ -183,6 +190,7 @@ public class DefaultPublisher extends Thread implements EventPublisher {
             
             // Because unifying smartSubscriber and subscriber, so here need to think of compatibility.
             // Remove original judge part of codes.
+            // 通知订阅者
             notifySubscriber(subscriber, event);
         }
     }
@@ -195,6 +203,7 @@ public class DefaultPublisher extends Thread implements EventPublisher {
         final Runnable job = new Runnable() {
             @Override
             public void run() {
+                // 订阅者处理事件
                 subscriber.onEvent(event);
             }
         };

@@ -392,6 +392,9 @@ public class Service extends com.alibaba.nacos.api.naming.pojo.Service implement
         return JacksonUtils.toJson(this);
     }
     
+    /**
+     *  将服务的信息，和集群的信息封装起来，转换为一个json串
+     */
     @JsonIgnore
     public String getServiceString() {
         Map<Object, Object> serviceObject = new HashMap<Object, Object>(10);
@@ -400,6 +403,7 @@ public class Service extends com.alibaba.nacos.api.naming.pojo.Service implement
         serviceObject.put("name", service.getName());
         
         List<Instance> ips = service.allIPs();
+        // 取出当前Service 下的所有注册的服务实例，然后查看检查是否健康
         int invalidIpCount = 0;
         int ipCount = 0;
         for (Instance ip : ips) {
@@ -417,7 +421,7 @@ public class Service extends com.alibaba.nacos.api.naming.pojo.Service implement
         serviceObject.put("token", service.getToken());
         
         serviceObject.put("protectThreshold", service.getProtectThreshold());
-        
+        // ============ 到此为止，ServiceObject 中存放 健康的实例数，不健康的实例数，服务名称，tocken
         List<Object> clustersList = new ArrayList<Object>();
         
         for (Map.Entry<String, Cluster> entry : service.getClusterMap().entrySet()) {
@@ -435,8 +439,10 @@ public class Service extends com.alibaba.nacos.api.naming.pojo.Service implement
         }
         
         serviceObject.put("clusters", clustersList);
+        // 把cluster 放到serviceObject中
         
         try {
+            //TODO alibaba 不用alibaba 的fastjson
             return JacksonUtils.toJson(serviceObject);
         } catch (Exception e) {
             throw new RuntimeException("Service toJson failed", e);
@@ -534,8 +540,10 @@ public class Service extends com.alibaba.nacos.api.naming.pojo.Service implement
     
     /**
      * Re-calculate checksum of service.
+     * 重新计算所有服务的 摘要
      */
     public synchronized void recalculateChecksum() {
+        // 拿到nacos 集群的所有IP
         List<Instance> ips = allIPs();
         
         StringBuilder ipsString = new StringBuilder();

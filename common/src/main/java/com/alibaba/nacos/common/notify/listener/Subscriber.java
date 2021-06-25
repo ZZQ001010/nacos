@@ -30,14 +30,14 @@ import java.util.concurrent.Executor;
 public abstract class Subscriber<T extends Event> {
     
     /**
-     * Event callback.
+     * 事件回调函数
      *
      * @param event {@link Event}
      */
     public abstract void onEvent(T event);
     
     /**
-     * Type of this subscriber's subscription.
+     * 该订阅者接受的事件类型
      *
      * @return Class which extends {@link Event}
      */

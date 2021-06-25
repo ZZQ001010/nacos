@@ -117,6 +117,7 @@ public class ConfigServletInner {
     
     /**
      * Execute to get config API.
+     *
      */
     public String doGetConfig(HttpServletRequest request, HttpServletResponse response, String dataId, String group,
             String tenant, String tag, String clientIp) throws IOException, ServletException {

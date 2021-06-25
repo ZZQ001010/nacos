@@ -111,8 +111,10 @@ public class InstancesChangeNotifier extends Subscriber<InstancesChangeEvent> {
         if (CollectionUtils.isEmpty(eventListeners)) {
             return;
         }
+        // 遍历所有的监听者，
         for (final EventListener listener : eventListeners) {
             final com.alibaba.nacos.api.naming.listener.Event namingEvent = transferToNamingEvent(event);
+            // 委托监听者处理事件
             if (listener instanceof AbstractEventListener && ((AbstractEventListener) listener).getExecutor() != null) {
                 ((AbstractEventListener) listener).getExecutor().execute(new Runnable() {
                     @Override
